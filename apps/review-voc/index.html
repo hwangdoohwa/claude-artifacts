@@ -1,0 +1,577 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>리뷰 VOC 분석기</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@400;500;700&family=IBM+Plex+Mono:wght@500&display=swap">
+<style>
+/* Layout: 상단 작업 줄(업로드·분류·다운로드) → 요약 수치 → Top 5 두 표 → 양방향 점 도표 → 리뷰 표. 단일 열, 최대 1080px */
+:root {
+  --bg: #F4F6F7;
+  --surface: #FFFFFF;
+  --ink: #16212B;
+  --ink-2: #4B5A67;
+  --ink-3: #7B8996;
+  --rule: #DCE2E7;
+  --band: #EEF2F5;
+  --accent: #1F5E7A;
+  --pos: #2A6FB0;
+  --neg: #D0652B;
+  --warn-bg: #FFF4DB;
+  --warn-ink: #7A5200;
+  --font-body: "IBM Plex Sans KR", "Malgun Gothic", "Apple SD Gothic Neo", sans-serif;
+  --font-num: "IBM Plex Mono", ui-monospace, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0F151A; --surface: #161E24; --ink: #E5ECF0; --ink-2: #A8B5BE; --ink-3: #7C8A94;
+    --rule: #27323A; --band: #1B252C; --accent: #6FB3D2; --pos: #6FA8E0; --neg: #F08D55;
+    --warn-bg: #3A2E12; --warn-ink: #F2CF7A; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0F151A; --surface: #161E24; --ink: #E5ECF0; --ink-2: #A8B5BE; --ink-3: #7C8A94;
+  --rule: #27323A; --band: #1B252C; --accent: #6FB3D2; --pos: #6FA8E0; --neg: #F08D55;
+  --warn-bg: #3A2E12; --warn-ink: #F2CF7A; color-scheme: dark;
+}
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+body {
+  background: var(--bg); color: var(--ink); font: 15px/1.6 var(--font-body);
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 28px 48px;
+}
+.wrap { max-width: 1080px; margin: 0 auto; display: grid; gap: 22px; }
+h1 { margin: 0; font-size: clamp(22px, 3.6vw, 30px); font-weight: 700; text-wrap: balance; }
+h2 { margin: 0; font-size: 16px; font-weight: 700; }
+.lede { margin: 4px 0 0; color: var(--ink-2); max-width: 70ch; }
+.num { font-family: var(--font-num); font-variant-numeric: tabular-nums; }
+
+.toolbar { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; background: var(--surface); border: 1px solid var(--rule); border-radius: 10px; padding: 14px 16px; }
+.toolbar .src { flex: 1 1 260px; min-width: 0; font-size: 13px; color: var(--ink-2); }
+.toolbar .src strong { color: var(--ink); font-weight: 500; overflow-wrap: anywhere; }
+.btn { appearance: none; border: 1px solid var(--rule); background: var(--surface); color: var(--ink); font: 500 14px var(--font-body); padding: 8px 14px; border-radius: 8px; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; }
+.btn:hover { border-color: var(--accent); }
+.btn.primary { background: var(--accent); border-color: var(--accent); color: var(--surface); }
+.btn:disabled { opacity: .45; cursor: not-allowed; }
+.btn:focus-visible, .linkbtn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.linkbtn { background: none; border: 0; padding: 0; color: var(--accent); font: inherit; cursor: pointer; text-decoration: underline; }
+input[type=file] { position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
+.status { font-size: 13px; color: var(--ink-2); min-height: 1.2em; }
+.status.err { color: var(--neg); }
+.banner { background: var(--warn-bg); color: var(--warn-ink); border-radius: 8px; padding: 10px 14px; font-size: 13px; display: flex; flex-wrap: wrap; gap: 8px 14px; align-items: center; }
+.help { font-size: 13px; color: var(--ink-2); }
+.help summary { cursor: pointer; color: var(--accent); }
+.help code { font-family: var(--font-num); font-size: 12px; background: var(--band); padding: 1px 5px; border-radius: 4px; }
+.help ul { margin: 8px 0 0; padding-left: 18px; display: grid; gap: 4px; }
+
+.kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 150px), 1fr)); gap: 1px; background: var(--rule); border: 1px solid var(--rule); border-radius: 10px; overflow: hidden; }
+.kpi { background: var(--surface); padding: 14px 16px; display: grid; gap: 2px; align-content: start; }
+.kpi .lbl { font-size: 12px; color: var(--ink-2); }
+.kpi .val { font-family: var(--font-num); font-size: 26px; line-height: 1.2; }
+.kpi .val small { font: 13px var(--font-body); color: var(--ink-2); margin-left: 2px; }
+.kpi .val.pos { color: var(--pos); } .kpi .val.neg { color: var(--neg); }
+
+.panel { background: var(--surface); border: 1px solid var(--rule); border-radius: 10px; padding: 18px; display: grid; gap: 10px; min-width: 0; }
+.panel .note { margin: 0; font-size: 12px; color: var(--ink-3); }
+.two { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr)); gap: 16px; }
+.key { display: flex; gap: 16px; font-size: 12px; color: var(--ink-2); flex-wrap: wrap; }
+.key i { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 6px; vertical-align: -1px; }
+
+table { width: 100%; border-collapse: collapse; font-size: 14px; }
+th, td { text-align: left; vertical-align: top; padding: 7px 10px; border-bottom: 1px solid var(--rule); }
+th { font-size: 12px; color: var(--ink-3); font-weight: 500; white-space: nowrap; }
+td.n, th.n { text-align: right; font-family: var(--font-num); font-variant-numeric: tabular-nums; }
+.tbl { overflow-x: auto; }
+.tbl table { min-width: 640px; }
+td.txt { min-width: 300px; line-height: 1.55; }
+.pill { display: inline-block; font-size: 12px; padding: 1px 9px; border-radius: 999px; border: 1px solid currentColor; white-space: nowrap; }
+.pill.pos { color: var(--pos); } .pill.neg { color: var(--neg); } .pill.neu { color: var(--ink-3); }
+.empty { color: var(--ink-3); font-size: 13px; padding: 8px 0; }
+
+.chart { position: relative; }
+.chart svg { display: block; width: 100%; height: auto; }
+.tip { position: absolute; pointer-events: none; background: var(--surface); color: var(--ink); border: 1px solid var(--rule); box-shadow: 0 6px 18px rgba(0,0,0,.12); border-radius: 8px; padding: 7px 10px; font-size: 12px; max-width: 300px; z-index: 3; }
+.tip .t { color: var(--ink-3); margin-bottom: 2px; }
+.dl-menu { display: inline-flex; gap: 8px; flex-wrap: wrap; }
+@media (prefers-reduced-motion: no-preference) { .btn { transition: border-color .15s; } }
+</style>
+
+<div class="wrap">
+  <header>
+    <h1>리뷰 VOC 분석기</h1>
+    <p class="lede">리뷰 CSV를 올리면 긍정·부정을 나누고 키워드 Top 5와 양방향 점 도표를 그립니다. 결과는 공문서 형식 보고서(HTML)나 CSV로 내려받을 수 있습니다.</p>
+  </header>
+
+  <section class="toolbar" aria-label="데이터와 보고서">
+    <label class="btn primary" for="file" id="upload-btn">⬆ 데이터 업로드 (CSV)</label>
+    <input type="file" id="file" accept=".csv,text/csv">
+    <button class="btn" id="classify-btn" hidden>Claude로 긍정·부정 분류</button>
+    <span class="dl-menu">
+      <button class="btn" id="dl-report">⬇ 보고서 다운로드 (.html)</button>
+      <button class="btn" id="dl-csv">⬇ 분석 결과 (.csv)</button>
+    </span>
+    <div class="src">현재 데이터: <strong id="src-name">—</strong> · <span id="src-meta" class="num">—</span></div>
+    <div class="status" id="status" role="status" aria-live="polite"></div>
+  </section>
+
+  <div class="banner" id="sample-banner">
+    <span>지금 보이는 것은 아이오닉 5 <b>가상 페르소나 리뷰 10건</b>(실습용 예시, 실제 고객 의견 아님)입니다. 본인 CSV를 올리면 바뀝니다.</span>
+  </div>
+
+  <details class="help">
+    <summary>어떤 CSV를 올릴 수 있나요?</summary>
+    <ul>
+      <li>첫 줄은 열 이름입니다. <code>리뷰</code>(또는 <code>review</code>) 열은 꼭 있어야 합니다.</li>
+      <li><code>감정</code>(긍정·부정·중립)과 <code>주제</code> 또는 <code>키워드</code> 열이 있으면 그대로 집계합니다. 키워드가 여러 개면 <code>;</code>로 구분합니다.</li>
+      <li>감정이나 키워드가 없으면 <b>Claude로 긍정·부정 분류</b> 버튼이 나타납니다. 누르면 내 Claude 사용량으로 리뷰를 분류합니다(최대 120건).</li>
+      <li>선택 열: <code>고객유형</code>, <code>별점</code>, <code>번호</code>. 같은 번호의 여러 행은 한 리뷰의 여러 언급으로 묶습니다.</li>
+      <li>올린 파일은 이 브라우저에서만 쓰이고 저장되거나 다른 사람에게 보이지 않습니다. 새로고침하면 예시 데이터로 돌아갑니다.</li>
+    </ul>
+  </details>
+
+  <section class="kpis" id="kpis" aria-label="요약">
+    <div class="kpi"><div class="lbl">리뷰</div><div class="val" id="k-total">—</div></div>
+    <div class="kpi"><div class="lbl">긍정 리뷰</div><div class="val pos" id="k-pos">—</div></div>
+    <div class="kpi"><div class="lbl">부정 리뷰</div><div class="val neg" id="k-neg">—</div></div>
+    <div class="kpi"><div class="lbl">중립 리뷰</div><div class="val" id="k-neu">—</div></div>
+    <div class="kpi"><div class="lbl">평균 별점</div><div class="val" id="k-rating">—</div></div>
+  </section>
+
+  <section class="two" id="top5">
+    <div class="panel">
+      <h2>긍정 키워드 Top 5</h2>
+      <p class="note">빈도 = 그 키워드를 긍정으로 언급한 횟수. 동률은 먼저 나온 순.</p>
+      <table><thead><tr><th>순위</th><th>키워드</th><th class="n">빈도</th></tr></thead><tbody id="top-pos"></tbody></table>
+    </div>
+    <div class="panel">
+      <h2>부정 키워드 Top 5</h2>
+      <p class="note">빈도 = 그 키워드를 부정으로 언급한 횟수. 동률은 먼저 나온 순.</p>
+      <table><thead><tr><th>순위</th><th>키워드</th><th class="n">빈도</th></tr></thead><tbody id="top-neg"></tbody></table>
+    </div>
+  </section>
+
+  <section class="panel" id="kw-panel">
+    <h2>키워드별 긍정·부정 언급</h2>
+    <p class="note" id="kw-note">가운데 선 기준 왼쪽은 부정, 오른쪽은 긍정. 위에서부터 긍정 우세 → 부정 우세 순입니다.</p>
+    <div class="key"><span><i style="background:var(--neg)"></i>부정 언급</span><span><i style="background:var(--pos)"></i>긍정 언급</span></div>
+    <div class="chart" id="kw-chart"></div>
+  </section>
+
+  <section class="panel" id="rv-panel">
+    <h2>리뷰 목록</h2>
+    <div class="tbl">
+      <table><thead><tr><th>번호</th><th>고객유형</th><th>분류</th><th class="n">별점</th><th>키워드</th><th>리뷰</th></tr></thead><tbody id="rv-body"></tbody></table>
+    </div>
+  </section>
+</div>
+
+<script>
+const SAMPLE = {"reviews": [{"id": "P01", "type": "김도윤(가상) · 38세 IT 기업 개발자", "text": "출퇴근 한 달 충전비가 휘발유 탈 때의 3분의 1 수준이라 체감이 큽니다. 조용하고 가속이 부드러워서 막히는 길에서도 피로가 덜해요.", "rating": "5", "sentiment": "긍정"}, {"id": "P02", "type": "박서연(가상) · 34세 초등학교 교사", "text": "바닥이 평평하고 뒷좌석이 넓어서 카시트 두 개를 달아도 여유가 있습니다. 다만 트렁크는 유모차를 넣으면 장보기 짐 둘 곳이 애매해요.", "rating": "4", "sentiment": "긍정"}, {"id": "P03", "type": "이정훈(가상) · 52세 자영업(카페 운영)", "text": "겨울에 히터를 켜면 주행 가능 거리가 눈에 띄게 줄어서 서울 왕복할 때마다 휴게소 충전 계획을 세워야 합니다. 여름에는 만족하는데 겨울엔 불안해서 내연기관 차가 그리울 때가 있어요.", "rating": "2", "sentiment": "부정"}, {"id": "P04", "type": "최민지(가상) · 29세 프리랜서 디자이너", "text": "캠핑장에서 V2L로 전기 그릴과 조명을 다 돌릴 수 있어서 이 차를 산 보람이 있어요. 픽셀 램프 디자인은 몇 년 지나도 질리지 않네요.", "rating": "5", "sentiment": "긍정"}, {"id": "P05", "type": "정우성(가상) · 45세 제조업 생산관리 과장", "text": "주행 중 경고등이 뜨고 출력이 제한돼 서비스센터에 입고했는데 부품 대기로 열흘 넘게 차를 못 썼습니다. 차 자체는 좋은데 고장 대응이 느린 건 실망스러워요.", "rating": "2", "sentiment": "부정"}, {"id": "P06", "type": "한지수(가상) · 41세 제약회사 영업직", "text": "800V 급속충전기에서는 커피 한 잔 마시는 사이에 80%까지 차서 외근 동선에 큰 불편이 없습니다. 다만 고장 난 충전기를 만나면 일정이 꼬여서 앱으로 미리 확인하는 습관이 생겼어요.", "rating": "4", "sentiment": "긍정"}, {"id": "P07", "type": "오세훈(가상) · 63세 은퇴 공무원", "text": "조용하고 승차감이 편해서 아내가 좋아합니다. 그런데 터치식 버튼과 메뉴가 많아 공조 설정 하나 바꾸는 데도 아직 헤매요.", "rating": "3", "sentiment": "부정"}, {"id": "P08", "type": "윤하늘(가상) · 31세 간호사", "text": "우리 아파트는 충전기가 두 대뿐이라 퇴근하고 오면 늘 차 있어서 밤마다 자리를 찾아 돌아다닙니다. 차는 마음에 드는데 충전 스트레스 때문에 주변에 쉽게 추천하진 못하겠어요.", "rating": "2", "sentiment": "부정"}, {"id": "P09", "type": "강태민(가상) · 36세 스타트업 마케터", "text": "고속도로 주행보조가 차선 중앙을 잘 잡아서 장거리 운전이 확실히 편해졌습니다. 회생제동 단계를 바꿔 원페달로 다니는 재미도 쏠쏠해요.", "rating": "4", "sentiment": "긍정"}, {"id": "P10", "type": "서미경(가상) · 48세 중학교 학부모·주부", "text": "후면 유리가 작고 와이퍼가 없던 연식이라 비 오는 날 후방이 잘 안 보여 불안했습니다. 가격대에 비해 실내 플라스틱 마감이 아쉽다는 생각도 들어요.", "rating": "2", "sentiment": "부정"}], "mentions": [{"id": "P01", "keyword": "충전", "sentiment": "긍정"}, {"id": "P01", "keyword": "주행 편안함", "sentiment": "긍정"}, {"id": "P01", "keyword": "정숙성", "sentiment": "긍정"}, {"id": "P01", "keyword": "가속감", "sentiment": "긍정"}, {"id": "P02", "keyword": "실내·적재 공간", "sentiment": "긍정"}, {"id": "P02", "keyword": "실내·적재 공간", "sentiment": "부정"}, {"id": "P03", "keyword": "겨울 주행거리", "sentiment": "부정"}, {"id": "P03", "keyword": "충전", "sentiment": "부정"}, {"id": "P03", "keyword": "겨울 주행거리", "sentiment": "부정"}, {"id": "P04", "keyword": "V2L", "sentiment": "긍정"}, {"id": "P04", "keyword": "디자인", "sentiment": "긍정"}, {"id": "P05", "keyword": "고장·수리 지연", "sentiment": "부정"}, {"id": "P05", "keyword": "고장·수리 지연", "sentiment": "부정"}, {"id": "P06", "keyword": "충전", "sentiment": "긍정"}, {"id": "P06", "keyword": "충전", "sentiment": "부정"}, {"id": "P07", "keyword": "정숙성", "sentiment": "긍정"}, {"id": "P07", "keyword": "주행 편안함", "sentiment": "긍정"}, {"id": "P07", "keyword": "조작성(터치 버튼)", "sentiment": "부정"}, {"id": "P08", "keyword": "충전", "sentiment": "부정"}, {"id": "P08", "keyword": "충전", "sentiment": "부정"}, {"id": "P09", "keyword": "주행보조(ADAS)", "sentiment": "긍정"}, {"id": "P09", "keyword": "주행 편안함", "sentiment": "긍정"}, {"id": "P09", "keyword": "원페달·회생제동", "sentiment": "긍정"}, {"id": "P10", "keyword": "후방 시야", "sentiment": "부정"}, {"id": "P10", "keyword": "실내 마감", "sentiment": "부정"}]};
+
+// ---------- 상태 ----------
+let state = { name: "", reviews: [], hasRating: false, isSample: true, needsClassify: false };
+const $ = id => document.getElementById(id);
+const fmt = n => n.toLocaleString("ko-KR");
+const POS = "긍정", NEG = "부정", NEU = "중립";
+
+function setStatus(msg, err) { const s = $("status"); s.textContent = msg || ""; s.classList.toggle("err", !!err); }
+
+// ---------- CSV 읽기 ----------
+function parseCSV(text) {
+  text = text.replace(/^﻿/, "");
+  const rows = []; let row = [], cell = "", q = false;
+  for (let i = 0; i < text.length; i++) {
+    const c = text[i];
+    if (q) {
+      if (c === '"') { if (text[i + 1] === '"') { cell += '"'; i++; } else q = false; }
+      else cell += c;
+    } else if (c === '"') q = true;
+    else if (c === ",") { row.push(cell); cell = ""; }
+    else if (c === "\n" || c === "\r") {
+      if (c === "\r" && text[i + 1] === "\n") i++;
+      row.push(cell); cell = "";
+      if (row.some(v => v.trim() !== "")) rows.push(row);
+      row = [];
+    } else cell += c;
+  }
+  row.push(cell); if (row.some(v => v.trim() !== "")) rows.push(row);
+  return rows;
+}
+
+const ALIAS = {
+  id: ["번호", "id", "persona_id", "no", "리뷰번호"],
+  type: ["고객유형(페르소나)", "고객유형", "페르소나", "persona", "customer", "고객"],
+  review: ["리뷰", "review", "리뷰내용", "내용", "sentence", "문장"],
+  sentiment: ["감정", "sentiment", "sentence_sentiment", "긍부정", "평가"],
+  label: ["review_label", "리뷰분류"],
+  keyword: ["키워드", "keyword", "keywords", "주제", "topic"],
+  rating: ["별점", "rating", "평점", "score"]
+};
+function normSent(v) {
+  v = String(v || "").trim().toLowerCase();
+  if (!v) return "";
+  if (/^(긍정|positive|pos|좋음|\+)/.test(v)) return POS;
+  if (/^(부정|negative|neg|나쁨|-)/.test(v)) return NEG;
+  if (/^(중립|neutral|neu|보통|0)/.test(v)) return NEU;
+  return "";
+}
+function majority(ms) {
+  const p = ms.filter(m => m.sentiment === POS).length, n = ms.filter(m => m.sentiment === NEG).length;
+  return p > n ? POS : n > p ? NEG : (p || n ? NEU : "");
+}
+
+function buildFromRows(rows, name) {
+  if (rows.length < 2) throw new Error("열 이름 줄과 데이터가 최소 1줄은 있어야 합니다.");
+  const head = rows[0].map(h => h.trim().toLowerCase());
+  const col = k => { for (const a of ALIAS[k]) { const i = head.indexOf(a.toLowerCase()); if (i >= 0) return i; } return -1; };
+  const c = Object.fromEntries(Object.keys(ALIAS).map(k => [k, col(k)]));
+  if (c.review < 0) throw new Error("'리뷰' 열을 찾지 못했습니다. 첫 줄에 리뷰(또는 review) 열 이름이 있어야 합니다.");
+  const map = new Map();
+  rows.slice(1).forEach((r, i) => {
+    const get = k => c[k] >= 0 ? (r[c[k]] || "").trim() : "";
+    const id = get("id") || String(i + 1);
+    if (!map.has(id)) map.set(id, { id, type: get("type"), text: get("review"), rating: get("rating"), label: normSent(get("label")), sentiment: "", mentions: [], textParts: [] });
+    const rv = map.get(id);
+    const t = get("review");
+    if (t && !rv.textParts.includes(t)) rv.textParts.push(t);
+    const s = normSent(get("sentiment"));
+    const kws = get("keyword").split(/[;|\n]/).map(x => x.trim()).filter(Boolean);
+    if (s && s !== NEU) kws.forEach(k => rv.mentions.push({ keyword: k, sentiment: s }));
+    if (s) rv.rowSent = (rv.rowSent || []).concat(s);
+  });
+  const reviews = [...map.values()].filter(r => r.textParts.length).map(r => {
+    r.text = r.textParts.join(" ");
+    const rs = r.rowSent || [];
+    r.sentiment = r.label || (rs.length === 1 ? rs[0] : majority(r.mentions) || (rs[0] || ""));
+    delete r.textParts; delete r.rowSent;
+    return r;
+  });
+  if (!reviews.length) throw new Error("리뷰 내용이 있는 행이 없습니다.");
+  const needsClassify = reviews.some(r => !r.sentiment) || reviews.every(r => !r.mentions.length);
+  return { name, reviews, hasRating: reviews.some(r => r.rating !== "" && !isNaN(Number(r.rating))), isSample: false, needsClassify };
+}
+
+// ---------- 집계 ----------
+function analyze(reviews) {
+  const kw = new Map(); let order = 0;
+  reviews.forEach(r => r.mentions.forEach(m => {
+    if (!kw.has(m.keyword)) kw.set(m.keyword, { keyword: m.keyword, pos: 0, neg: 0, first: order++, refs: [] });
+    const k = kw.get(m.keyword);
+    if (m.sentiment === POS) k.pos++; else k.neg++;
+    k.refs.push({ id: r.id, sentiment: m.sentiment, text: r.text });
+  }));
+  const kws = [...kw.values()].map(k => ({ ...k, total: k.pos + k.neg, net: k.pos - k.neg }));
+  const top = key => kws.filter(k => k[key] > 0).sort((a, b) => b[key] - a[key] || a.first - b.first).slice(0, 5).map(k => ({ keyword: k.keyword, count: k[key] }));
+  const cnt = s => reviews.filter(r => r.sentiment === s).length;
+  const ratings = reviews.map(r => Number(r.rating)).filter(v => !isNaN(v) && v > 0);
+  return {
+    total: reviews.length, pos: cnt(POS), neg: cnt(NEG), neu: cnt(NEU),
+    avg: ratings.length ? ratings.reduce((a, b) => a + b, 0) / ratings.length : null,
+    mentions: kws.reduce((s, k) => s + k.total, 0),
+    kws: kws.sort((a, b) => b.net - a.net || b.total - a.total || a.first - b.first),
+    topPos: top("pos"), topNeg: top("neg")
+  };
+}
+
+// ---------- 그리기 ----------
+function cell(tr, text, cls) { const td = document.createElement("td"); td.textContent = text; if (cls) td.className = cls; tr.appendChild(td); return td; }
+function pill(td, s) { const p = document.createElement("span"); p.className = "pill " + (s === POS ? "pos" : s === NEG ? "neg" : "neu"); p.textContent = s || "미분류"; td.appendChild(p); }
+
+function drawTop(tbody, list) {
+  tbody.replaceChildren();
+  if (!list.length) { const tr = document.createElement("tr"); const td = cell(tr, "해당 언급이 없습니다."); td.colSpan = 3; td.className = "empty"; tbody.appendChild(tr); return; }
+  list.forEach((d, i) => { const tr = document.createElement("tr"); cell(tr, String(i + 1)); cell(tr, d.keyword); cell(tr, String(d.count), "n"); tbody.appendChild(tr); });
+}
+
+const NS = "http://www.w3.org/2000/svg";
+function el(tag, attrs, parent) { const e = document.createElementNS(NS, tag); for (const k in attrs) e.setAttribute(k, attrs[k]); if (parent) parent.appendChild(e); return e; }
+
+// 양방향 점 도표. 한쪽 언급이 많으면(>14) 점 대신 막대로 그린다.
+function drawDiverging(host, kws, opts = {}) {
+  host.replaceChildren();
+  if (!kws.length) { const p = document.createElement("p"); p.className = "empty"; p.textContent = "키워드 언급이 아직 없습니다. 감정·키워드 열이 있는 CSV를 올리거나 Claude로 분류하세요."; host.appendChild(p); return null; }
+  const color = opts.colors || { pos: "var(--pos)", neg: "var(--neg)", ink: "var(--ink)", muted: "var(--ink-3)", axis: "var(--ink-3)", band: "var(--band)", ring: "var(--surface)" };
+  const W = opts.width || Math.max(320, host.clientWidth || 800);
+  const rows = kws.slice(0, opts.limit || 30);
+  const rowH = 30, top = 28, r = 6;
+  const H = top + rows.length * rowH + 6;
+  const svg = el("svg", { viewBox: `0 0 ${W} ${H}`, width: opts.width ? W : "100%", role: "img", "aria-label": "키워드별 긍정·부정 언급 양방향 점 도표", "font-family": opts.font || "inherit" });
+  host.appendChild(svg);
+  // 라벨 폭 측정
+  let labelW = 0;
+  const probe = el("text", { "font-size": 13 }, svg);
+  rows.forEach(d => { probe.textContent = d.keyword; labelW = Math.max(labelW, probe.getComputedTextLength ? probe.getComputedTextLength() : d.keyword.length * 13); });
+  probe.remove();
+  labelW = Math.min(Math.ceil(labelW) + 16, W * 0.4);
+  const maxSide = Math.max(1, ...rows.map(d => Math.max(d.pos, d.neg)));
+  const cx0 = labelW + (W - labelW) / 2;
+  const half = (W - labelW) / 2 - 26;
+  const asBars = maxSide > 14;
+  const step = Math.min(22, half / maxSide);
+  rows.forEach((d, i) => {
+    const y0 = top + i * rowH, cy = y0 + rowH / 2;
+    if (i % 2 === 0) el("rect", { x: 0, y: y0 + 1, width: W, height: rowH - 2, rx: 4, fill: color.band }, svg);
+    const t = el("text", { x: labelW - 12, y: cy, "dominant-baseline": "middle", "text-anchor": "end", "font-size": 13, fill: color.ink }, svg); t.textContent = d.keyword;
+    const marks = [];
+    [[1, d.pos, color.pos, POS], [-1, d.neg, color.neg, NEG]].forEach(([side, n, c, s]) => {
+      if (!n) return;
+      if (asBars) {
+        const w = n * step, x = side > 0 ? cx0 + 4 : cx0 - 4 - w;
+        marks.push([el("rect", { x, y: cy - 7, width: w, height: 14, rx: 4, fill: c }, svg), s, n]);
+      } else {
+        for (let k = 0; k < n; k++) marks.push([el("circle", { cx: cx0 + side * ((k + 0.5) * step + 4), cy, r, fill: c, stroke: color.ring, "stroke-width": 2 }, svg), s, k]);
+      }
+      const ex = cx0 + side * (n * step + 4 + (asBars ? 6 : r / 2 + 6));
+      const lt = el("text", { x: ex, y: cy, "dominant-baseline": "middle", "text-anchor": side > 0 ? "start" : "end", "font-size": 11, fill: color.muted }, svg); lt.textContent = n;
+    });
+    if (opts.onHover) marks.forEach(([m, s, k]) => opts.onHover(m, d, s, k));
+  });
+  el("line", { x1: cx0, x2: cx0, y1: top - 6, y2: H, stroke: color.axis, "stroke-width": 1 }, svg);
+  const l = el("text", { x: cx0 - 8, y: top - 12, "text-anchor": "end", "font-size": 11, fill: color.muted }, svg); l.textContent = "← 부정";
+  const rr = el("text", { x: cx0 + 8, y: top - 12, "font-size": 11, fill: color.muted }, svg); rr.textContent = "긍정 →";
+  return svg;
+}
+
+function render() {
+  const a = analyze(state.reviews);
+  $("src-name").textContent = state.name;
+  $("src-meta").textContent = `리뷰 ${fmt(a.total)}건 · 키워드 언급 ${fmt(a.mentions)}회`;
+  $("sample-banner").hidden = !state.isSample;
+  $("k-total").innerHTML = ""; $("k-total").append(fmt(a.total)); small($("k-total"), "건");
+  [["k-pos", a.pos], ["k-neg", a.neg], ["k-neu", a.neu]].forEach(([id, v]) => { $(id).replaceChildren(fmt(v)); small($(id), `건 · ${a.total ? Math.round(v / a.total * 100) : 0}%`); });
+  $("k-rating").replaceChildren(a.avg == null ? "—" : a.avg.toFixed(1)); if (a.avg != null) small($("k-rating"), "/ 5");
+  drawTop($("top-pos"), a.topPos);
+  drawTop($("top-neg"), a.topNeg);
+  $("kw-note").textContent = a.kws.length > 30
+    ? `키워드 ${a.kws.length}개 중 언급 상위 30개. 가운데 선 기준 왼쪽은 부정, 오른쪽은 긍정이며 위에서부터 긍정 우세 → 부정 우세 순입니다.`
+    : "가운데 선 기준 왼쪽은 부정, 오른쪽은 긍정. 위에서부터 긍정 우세 → 부정 우세 순입니다. 점에 마우스를 올리면 원문이 보입니다.";
+  const host = $("kw-chart");
+  const kwsShown = a.kws.length > 30 ? [...a.kws].sort((x, y) => y.total - x.total).slice(0, 30).sort((x, y) => y.net - x.net || y.total - x.total) : a.kws;
+  const tip = document.createElement("div"); tip.className = "tip"; tip.hidden = true;
+  drawDiverging(host, kwsShown, {
+    onHover: (m, d, s, k) => {
+      m.addEventListener("mousemove", ev => {
+        tip.replaceChildren();
+        const t = document.createElement("div"); t.className = "t";
+        const refs = d.refs.filter(x => x.sentiment === s);
+        const ref = refs[k] || null;
+        t.textContent = `${d.keyword} · ${s} ${s === POS ? d.pos : d.neg}회` + (ref ? ` · ${ref.id}` : "");
+        const b = document.createElement("div"); b.textContent = ref ? ref.text.slice(0, 160) : "";
+        tip.append(t); if (ref) tip.append(b);
+        tip.hidden = false;
+        const box = host.getBoundingClientRect();
+        let left = ev.clientX - box.left + 12;
+        if (left + tip.offsetWidth > box.width) left = ev.clientX - box.left - tip.offsetWidth - 12;
+        tip.style.left = Math.max(0, left) + "px"; tip.style.top = (ev.clientY - box.top + 14) + "px";
+      });
+      m.addEventListener("mouseleave", () => { tip.hidden = true; });
+    }
+  });
+  host.appendChild(tip);
+  const body = $("rv-body"); body.replaceChildren();
+  state.reviews.slice(0, 300).forEach(r => {
+    const tr = document.createElement("tr");
+    cell(tr, r.id); cell(tr, r.type || "—"); pill(cell(tr, ""), r.sentiment); cell(tr, r.rating || "—", "n");
+    const tags = new Map(); r.mentions.forEach(m => { const k = `${m.keyword}(${m.sentiment === POS ? "+" : "−"}`; tags.set(k, (tags.get(k) || 0) + 1); });
+    cell(tr, [...tags].map(([k, n]) => k + (n > 1 ? " ×" + n : "") + ")").join(", ") || "—");
+    cell(tr, r.text, "txt");
+    body.appendChild(tr);
+  });
+  $("classify-btn").hidden = !(state.needsClassify && sampleFn);
+  if (state.needsClassify && !sampleFn) setStatus("감정·키워드 열이 없어 일부만 집계됩니다. 이 화면에서는 Claude 분류를 쓸 수 없습니다.", true);
+}
+function small(node, text) { const s = document.createElement("small"); s.textContent = text; node.appendChild(s); }
+function lastAnalysis() { return analyze(state.reviews); }
+
+// ---------- 업로드 ----------
+$("file").addEventListener("change", async e => {
+  const f = e.target.files && e.target.files[0];
+  e.target.value = "";
+  if (!f) return;
+  if (!/\.csv$/i.test(f.name)) { setStatus("CSV 파일(.csv)만 올릴 수 있습니다.", true); return; }
+  try {
+    const buf = await f.arrayBuffer();
+    let text = new TextDecoder("utf-8", { fatal: false }).decode(buf);
+    if (text.includes(String.fromCharCode(0xFFFD))) { try { text = new TextDecoder("euc-kr").decode(buf); } catch (_) {} }
+    state = buildFromRows(parseCSV(text), f.name);
+    render();
+    setStatus(state.needsClassify
+      ? `${f.name}을(를) 불러왔습니다. 감정·키워드가 비어 있는 리뷰가 있어 'Claude로 긍정·부정 분류'를 누르면 채워집니다.`
+      : `${f.name}을(를) 불러와 분석했습니다.`);
+  } catch (err) { setStatus("파일을 읽지 못했습니다: " + err.message, true); }
+});
+
+// ---------- Claude 분류 (sample) ----------
+let sampleFn = null, downloads = null, classifying = null;
+$("classify-btn").addEventListener("click", async () => {
+  if (!sampleFn) return;
+  if (classifying) { classifying.abort(); return; }
+  const list = state.reviews.slice(0, 120);
+  const btn = $("classify-btn");
+  classifying = new AbortController();
+  btn.textContent = "분류 중지";
+  setStatus(`Claude가 리뷰 ${list.length}건을 분류하는 중입니다… (처음 사용 시 허용 여부를 묻습니다)`);
+  const prompt = [
+    "다음은 자동차 고객 리뷰 목록이다. 각 리뷰를 분석해 JSON 배열만 답하라.",
+    '형식: [{"id": "리뷰 id 그대로", "sentiment": "긍정"|"부정"|"중립", "mentions": [{"keyword": "짧은 한국어 명사구", "sentiment": "긍정"|"부정"}]}]',
+    "규칙: sentiment는 리뷰 전체의 주된 평가. mentions는 리뷰가 다룬 차량·서비스 측면마다 하나(1~4개).",
+    "keyword는 2~10자 명사구로, 같은 개념은 리뷰가 달라도 같은 표현으로 통일한다(예: 충전, 주행 편안함, 겨울 주행거리, 실내 공간, 디자인, 가격, 서비스 대응, 소프트웨어).",
+    "리뷰 목록(JSON):",
+    JSON.stringify(list.map(r => ({ id: r.id, review: r.text.slice(0, 500) })))
+  ].join("\n");
+  try {
+    const out = await sampleFn.json(prompt, { modelTier: "quick", signal: classifying.signal });
+    if (!Array.isArray(out)) throw { code: "invalid_json" };
+    const byId = new Map(out.map(o => [String(o.id), o]));
+    let filled = 0;
+    state.reviews.forEach(r => {
+      const o = byId.get(String(r.id)); if (!o) return;
+      const s = normSent(o.sentiment);
+      if (!r.sentiment && s) r.sentiment = s;
+      if (!r.mentions.length && Array.isArray(o.mentions)) {
+        r.mentions = o.mentions.map(m => ({ keyword: String(m.keyword || "").trim().slice(0, 20), sentiment: normSent(m.sentiment) }))
+          .filter(m => m.keyword && (m.sentiment === POS || m.sentiment === NEG));
+      }
+      filled++;
+    });
+    state.needsClassify = state.reviews.some(r => !r.sentiment);
+    state.classifiedBy = "Claude 자동 분류";
+    render();
+    setStatus(`리뷰 ${filled}건을 Claude가 분류했습니다. 자동 분류이므로 중요한 판단 전에는 원문을 확인하세요.` + (state.reviews.length > 120 ? " (앞 120건만 분류)" : ""));
+  } catch (e) {
+    const code = e && e.code;
+    if (code === "cancelled") setStatus("분류를 멈췄습니다.");
+    else if (["not_granted", "sampling_disabled", "not_declared", "capability_disabled", "capability_removed"].includes(code)) { sampleFn = null; render(); setStatus("이 화면에서는 Claude 분류를 쓸 수 없습니다.", true); }
+    else if (code === "rate_limited") setStatus("요청이 많아 잠시 뒤 다시 눌러 주세요.", true);
+    else if (code === "prompt_too_large") setStatus("리뷰가 너무 길거나 많습니다. 파일을 나눠 올려 주세요.", true);
+    else setStatus("분류 결과를 받지 못했습니다. 다시 눌러 주세요.", true);
+  } finally {
+    classifying = null; btn.textContent = "Claude로 긍정·부정 분류";
+  }
+});
+
+// ---------- 다운로드 ----------
+const esc = s => String(s ?? "").replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+const csvCell = v => { v = String(v ?? ""); return /[",\n\r]/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v; };
+const today = () => { const d = new Date(); return `${d.getFullYear()}. ${d.getMonth() + 1}. ${d.getDate()}.`; };
+const stamp = () => new Date().toISOString().slice(0, 10);
+
+function reportHTML() {
+  const a = lastAnalysis();
+  const pct = v => a.total ? Math.round(v / a.total * 100) : 0;
+  const host = document.createElement("div");
+  host.style.cssText = "position:absolute;left:-9999px;top:0;width:680px";
+  document.body.appendChild(host);
+  const svg = drawDiverging(host, a.kws.slice(0, 20), { width: 680, font: "Malgun Gothic, sans-serif",
+    colors: { pos: "#2A6FB0", neg: "#D0652B", ink: "#16212B", muted: "#6B7884", axis: "#9AA6B0", band: "#F1F4F6", ring: "#FFFFFF" } });
+  const chart = svg ? new XMLSerializer().serializeToString(svg) : "";
+  host.remove();
+  const topRows = list => list.length ? list.map((d, i) => `<tr><td>${i + 1}</td><td>${esc(d.keyword)}</td><td class="n">${d.count}</td></tr>`).join("") : `<tr><td colspan="3">해당 언급 없음</td></tr>`;
+  const worst = a.topNeg[0], best = a.topPos[0];
+  const mixed = a.kws.filter(k => k.pos && k.neg).sort((x, y) => y.total - x.total)[0];
+  const src = state.isSample ? "아이오닉 5 가상 페르소나 리뷰(실습용 예시, 실제 고객 의견 아님)" : state.name;
+  const method = state.classifiedBy ? "업로드한 리뷰를 Claude가 자동으로 긍정·부정·중립으로 분류하고 키워드를 붙임" : "리뷰에 기록된 감정·키워드 값을 그대로 집계";
+  const rvRows = state.reviews.slice(0, 200).map(r => `<tr><td>${esc(r.id)}</td><td>${esc(r.type || "—")}</td><td>${esc(r.sentiment || "미분류")}</td><td>${esc(r.text)}</td></tr>`).join("");
+  return `<!doctype html><html lang="ko"><head><meta charset="utf-8"><title>리뷰 VOC 분석 결과 보고</title>
+<style>
+body{font-family:"Malgun Gothic","Apple SD Gothic Neo",sans-serif;color:#111;max-width:760px;margin:32px auto;padding:0 24px;line-height:1.7;font-size:15px}
+h1{text-align:center;font-size:24px;border-top:3px solid #1d3f9e;border-bottom:3px solid #1d3f9e;padding:14px 0;margin:0 0 6px}
+.date{text-align:right;color:#444;margin:0 0 18px}
+.box{background:#fff6d6;border:1px solid #c9b46a;padding:10px 14px;margin:0 0 22px}
+.box p{margin:2px 0}
+h2{font-size:18px;color:#1d3f9e;border-bottom:2px solid #1d3f9e;padding-bottom:4px;margin:28px 0 12px}
+h3{font-size:16px;margin:16px 0 8px}
+p.l1{margin:6px 0 2px;padding-left:1.4em;text-indent:-1.4em}
+p.l2{margin:2px 0;padding-left:2.8em;text-indent:-1.4em}
+.note{font-size:13px;color:#444;margin:4px 0 0 1.4em}
+table{border-collapse:collapse;width:100%;margin:8px 0 6px;font-size:14px}
+th,td{border:1px solid #888;padding:5px 8px;text-align:center}
+th{background:#e4e9f5}
+td.n{text-align:right}
+td:last-child.txt{text-align:left}
+.cap{text-align:center;font-size:14px;margin:14px 0 4px}
+.two{display:flex;gap:16px}.two>div{flex:1}
+</style></head><body>
+<h1>리뷰 VOC 분석 결과 보고</h1>
+<p class="date">${today()}</p>
+<div class="box">
+<p>▪ 리뷰 ${a.total}건 중 긍정 ${a.pos}건(${pct(a.pos)}%), 부정 ${a.neg}건(${pct(a.neg)}%), 중립 ${a.neu}건(${pct(a.neu)}%)</p>
+${worst ? `<p>▪ 부정 언급이 가장 많은 키워드는 '${esc(worst.keyword)}'(${worst.count}회)${best ? `, 긍정은 '${esc(best.keyword)}'(${best.count}회)` : ""}</p>` : ""}
+</div>
+<h2>Ⅰ. 개요</h2>
+<p class="l1">□ (목적) 고객 리뷰의 긍정·부정 경향과 주요 키워드를 파악하여 개선 과제를 검토</p>
+<p class="l1">□ (분석 자료) ${esc(src)}, 리뷰 ${a.total}건</p>
+<p class="l1">□ (분석 방법) ${method}</p>
+<p class="note">* 키워드 빈도는 리뷰에서 해당 키워드를 긍정 또는 부정으로 언급한 횟수</p>
+<h2>Ⅱ. 분석 결과</h2>
+<h3>1. 긍정·부정 분포</h3>
+<table><tr><th>구분</th><th>리뷰 수(건)</th><th>비중</th></tr>
+<tr><td>긍정</td><td class="n">${a.pos}</td><td class="n">${pct(a.pos)}%</td></tr>
+<tr><td>부정</td><td class="n">${a.neg}</td><td class="n">${pct(a.neg)}%</td></tr>
+<tr><td>중립</td><td class="n">${a.neu}</td><td class="n">${pct(a.neu)}%</td></tr>
+<tr><th>합계</th><th>${a.total}</th><th>100%</th></tr></table>
+${a.avg != null ? `<p class="l1">□ (별점) 평균 ${a.avg.toFixed(1)}점(5점 만점)</p>` : ""}
+<h3>2. 키워드 Top 5</h3>
+<div class="two"><div><p class="cap">&lt; 긍정 키워드 &gt;</p><table><tr><th>순위</th><th>키워드</th><th>빈도(회)</th></tr>${topRows(a.topPos)}</table></div>
+<div><p class="cap">&lt; 부정 키워드 &gt;</p><table><tr><th>순위</th><th>키워드</th><th>빈도(회)</th></tr>${topRows(a.topNeg)}</table></div></div>
+<p class="note">* 동률은 리뷰에 먼저 나온 순으로 정렬</p>
+${chart ? `<p class="cap">&lt; 키워드별 긍정·부정 언급 (왼쪽 부정, 오른쪽 긍정) &gt;</p>${chart}` : ""}
+<h2>Ⅲ. 시사점</h2>
+${worst ? `<p class="l1">□ (우선 개선) 부정 언급 1위 '${esc(worst.keyword)}'(${worst.count}회)에 대한 원인 파악과 개선 방안 검토 필요</p>` : ""}
+${a.topNeg.slice(1, 3).length ? `<p class="l2">ㅇ 이어서 ${a.topNeg.slice(1, 3).map(d => `'${esc(d.keyword)}'(${d.count}회)`).join(", ")} 순으로 부정 언급이 많음</p>` : ""}
+${mixed ? `<p class="l1">□ (평가 엇갈림) '${esc(mixed.keyword)}'은(는) 긍정 ${mixed.pos}회·부정 ${mixed.neg}회로 고객 경험이 갈리는 영역</p>` : ""}
+${best ? `<p class="l1">□ (강점 활용) 긍정 언급 상위 ${a.topPos.slice(0, 3).map(d => `'${esc(d.keyword)}'`).join("·")}을(를) 고객 커뮤니케이션에 반영 검토</p>` : ""}
+<p class="l1">□ (유의 사항) ${state.isSample ? "본 결과는 실습용 가상 데이터 기반이므로 실제 고객 VOC로 재확인 필요" : state.classifiedBy ? "자동 분류 결과이므로 중요한 판단 전 원문 확인 필요" : "업로드 자료에 기록된 분류를 그대로 사용함"}</p>
+<h2>붙임. 리뷰 목록</h2>
+<table><tr><th>번호</th><th>고객유형</th><th>분류</th><th>리뷰</th></tr>${rvRows}</table>
+${state.reviews.length > 200 ? `<p class="note">* 리뷰가 많아 앞 200건만 수록</p>` : ""}
+</body></html>`;
+}
+
+function resultCSV() {
+  const lines = [["번호", "고객유형", "리뷰분류", "별점", "키워드", "키워드감정", "리뷰"].join(",")];
+  state.reviews.forEach(r => {
+    const ms = r.mentions.length ? r.mentions : [{ keyword: "", sentiment: "" }];
+    ms.forEach(m => lines.push([r.id, r.type, r.sentiment, r.rating, m.keyword, m.sentiment, r.text].map(csvCell).join(",")));
+  });
+  return "﻿" + lines.join("\r\n");
+}
+
+async function save(filename, data) {
+  if (!downloads) { setStatus("이 화면에서는 파일 저장을 쓸 수 없습니다. claude.ai에서 열어 주세요.", true); return; }
+  try {
+    const res = await downloads.save({ filename, data });
+    setStatus(res.status === "saved" ? `${filename}을(를) 저장했습니다.` : `${filename}을(를) 보냈습니다.`);
+  } catch (e) {
+    const code = e && e.code;
+    if (code === "declined") setStatus("저장을 취소했습니다.");
+    else if (code === "rate_limited") setStatus("저장 창이 이미 열려 있습니다. 잠시 뒤 다시 눌러 주세요.", true);
+    else { setStatus("이 화면에서는 파일 저장을 쓸 수 없습니다.", true); }
+  }
+}
+$("dl-report").addEventListener("click", () => save(`리뷰VOC_분석보고서_${stamp()}.html`, reportHTML()));
+$("dl-csv").addEventListener("click", () => save(`리뷰VOC_분석결과_${stamp()}.csv`, resultCSV()));
+
+// ---------- 시작 ----------
+function loadSample() {
+  const map = new Map();
+  SAMPLE.reviews.forEach(r => map.set(r.id, { ...r, mentions: [] }));
+  SAMPLE.mentions.forEach(m => map.get(m.id).mentions.push({ keyword: m.keyword, sentiment: m.sentiment }));
+  state = { name: "아이오닉 5 가상 리뷰 10건 (예시)", reviews: [...map.values()], hasRating: true, isSample: true, needsClassify: false };
+}
+loadSample();
+render();
+let lastW = 0;
+new ResizeObserver(() => { const w = $("kw-chart").clientWidth; if (Math.abs(w - lastW) > 8) { lastW = w; render(); } }).observe($("kw-chart"));
+
+(async () => {
+  if (!window.claude || !window.claude.use) { $("dl-report").disabled = true; $("dl-csv").disabled = true; return; }
+  const [d, s] = await Promise.all([window.claude.use("downloads"), window.claude.use("sample")]);
+  downloads = d; sampleFn = s;
+  $("dl-report").disabled = !downloads; $("dl-csv").disabled = !downloads;
+  if (!downloads) { $("dl-report").title = "이 화면에서는 파일 저장을 쓸 수 없습니다"; $("dl-csv").title = $("dl-report").title; }
+  render();
+})();
+</script>
+
+</body></html>

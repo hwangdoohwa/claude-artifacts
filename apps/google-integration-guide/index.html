@@ -1,0 +1,485 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>구글 연동 따라하기</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+/* Layout: 좁은 단일 칼럼 학습지. 상단 진행 요약 → 탭 → 1부/2부 단계 카드 → FAQ·보안 */
+:root{
+  --bg:#f5f7fa; --surface:#ffffff; --surface-2:#eef2f7; --fg:#18202b; --muted:#5a6676;
+  --line:#d9e0e9; --accent:#1d5fd1; --accent-soft:#e3ecfb; --done:#1f8a5b; --done-soft:#e2f3ea;
+  --warn:#b45f06; --warn-soft:#fdf0dc; --danger:#b3261e; --danger-soft:#fbe7e5;
+  --term-bg:#141a23; --term-fg:#e6edf6; --term-dim:#8b98aa;
+  --font-body:"IBM Plex Sans KR","Malgun Gothic","Apple SD Gothic Neo",system-ui,sans-serif;
+  --font-mono:"JetBrains Mono",Consolas,"D2Coding",monospace;
+  --r:10px;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#0f141b; --surface:#161d27; --surface-2:#1d2632; --fg:#e4e9f0; --muted:#9aa6b6;
+  --line:#2a3544; --accent:#7aa7f5; --accent-soft:#1c2d4a; --done:#5cc79a; --done-soft:#163a2b;
+  --warn:#f0b35a; --warn-soft:#3a2a12; --danger:#f2867d; --danger-soft:#3d1c1a;
+  --term-bg:#0a0e14; --term-fg:#e6edf6; --term-dim:#7d8a9c; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0f141b; --surface:#161d27; --surface-2:#1d2632; --fg:#e4e9f0; --muted:#9aa6b6;
+  --line:#2a3544; --accent:#7aa7f5; --accent-soft:#1c2d4a; --done:#5cc79a; --done-soft:#163a2b;
+  --warn:#f0b35a; --warn-soft:#3a2a12; --danger:#f2867d; --danger-soft:#3d1c1a;
+  --term-bg:#0a0e14; --term-fg:#e6edf6; --term-dim:#7d8a9c; color-scheme:dark}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--fg);font-family:var(--font-body);font-size:15.5px;line-height:1.7}
+.wrap{max-width:860px;margin:0 auto;padding-block:28px 64px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));display:grid;gap:28px}
+h1,h2,h3{text-wrap:balance;line-height:1.3;margin:0}
+h1{font-size:clamp(1.6rem,4vw,2.1rem);font-weight:700;letter-spacing:-.01em}
+h2{font-size:1.3rem;font-weight:700}
+h3{font-size:1.06rem;font-weight:600}
+p{margin:0}
+code,.mono{font-family:var(--font-mono);font-size:.88em}
+:not(pre)>code{background:var(--surface-2);border:1px solid var(--line);padding:1px 6px;border-radius:5px;word-break:break-all}
+a{color:var(--accent)}
+.eyebrow{font-size:.78rem;letter-spacing:.08em;color:var(--muted);font-weight:600;text-transform:uppercase}
+.lead{color:var(--muted);max-width:62ch}
+
+/* 진행 요약 */
+.summary{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:20px;display:grid;gap:18px}
+.kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}
+.kpi{display:grid;gap:2px}
+.kpi b{font-size:1.6rem;font-variant-numeric:tabular-nums;line-height:1.2}
+.kpi span{font-size:.82rem;color:var(--muted)}
+.bars{display:grid;gap:10px}
+.bar-row{display:grid;grid-template-columns:96px 1fr 52px;gap:10px;align-items:center;font-size:.88rem}
+.bar{height:10px;background:var(--surface-2);border-radius:99px;overflow:hidden}
+.bar i{display:block;height:100%;width:0;background:var(--accent);border-radius:99px;transition:width .35s ease}
+.bar.p2 i{background:var(--done)}
+.bar-row .num{text-align:right;font-variant-numeric:tabular-nums;color:var(--muted)}
+.save-note{font-size:.8rem;color:var(--muted);display:flex;gap:10px;flex-wrap:wrap;align-items:center;justify-content:space-between}
+.linkbtn{background:none;border:0;color:var(--muted);text-decoration:underline;cursor:pointer;font:inherit;padding:0}
+
+/* 비교 표 */
+.compare{overflow-x:auto;background:var(--surface);border:1px solid var(--line);border-radius:var(--r)}
+table{border-collapse:collapse;width:100%;min-width:520px;font-size:.92rem}
+th,td{padding:10px 14px;text-align:left;border-bottom:1px solid var(--line);vertical-align:top}
+thead th{background:var(--surface-2);font-weight:600}
+tbody tr:last-child td{border-bottom:0}
+
+/* 탭 */
+.tabs{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:var(--bg);padding-block:8px;display:flex;gap:6px;flex-wrap:wrap;border-bottom:1px solid var(--line)}
+.tab{border:1px solid var(--line);background:var(--surface);color:var(--fg);border-radius:99px;padding:6px 14px;font:inherit;font-size:.9rem;cursor:pointer;display:inline-flex;gap:6px;align-items:center}
+.tab .c{font-variant-numeric:tabular-nums;color:var(--muted);font-size:.82rem}
+.tab[aria-selected="true"]{background:var(--fg);color:var(--bg);border-color:var(--fg)}
+.tab[aria-selected="true"] .c{color:inherit;opacity:.75}
+.tab:focus-visible,.check:focus-within,.copy:focus-visible,summary:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+
+/* 파트 */
+.part{display:grid;gap:14px}
+.part-head{display:grid;gap:6px;padding-top:6px}
+.pill{display:inline-block;font-size:.76rem;font-weight:600;padding:2px 10px;border-radius:99px;background:var(--accent-soft);color:var(--accent);width:max-content}
+.pill.hard{background:var(--warn-soft);color:var(--warn)}
+
+/* 단계 카드 */
+.step{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);display:grid}
+.step.is-done{border-color:color-mix(in srgb,var(--done) 45%,var(--line))}
+.step-top{display:grid;grid-template-columns:auto 1fr auto;gap:14px;align-items:start;padding:16px 18px}
+.idx{width:34px;height:34px;border-radius:50%;display:grid;place-items:center;font-weight:700;font-variant-numeric:tabular-nums;background:var(--surface-2);color:var(--muted);font-size:.92rem}
+.is-done .idx{background:var(--done);color:var(--surface)}
+.step-title{display:grid;gap:2px;min-width:0}
+.step-title small{color:var(--muted);font-size:.84rem}
+.check{display:inline-flex;align-items:center;gap:8px;font-size:.88rem;font-weight:600;cursor:pointer;border:1px solid var(--line);border-radius:8px;padding:6px 10px;white-space:nowrap;user-select:none}
+.check input{width:18px;height:18px;accent-color:var(--done);margin:0}
+.is-done .check{background:var(--done-soft);border-color:transparent;color:var(--done)}
+.step-body{padding:0 18px 18px 66px;display:grid;gap:14px;min-width:0}
+.step details>summary{cursor:pointer;color:var(--muted);font-size:.86rem}
+.block{display:grid;gap:6px;min-width:0}
+.block>.label{font-size:.76rem;font-weight:700;letter-spacing:.06em;color:var(--muted)}
+ol.todo,ul.plain{margin:0;padding-left:1.3em;display:grid;gap:4px}
+.screen{border:1px dashed var(--line);border-radius:8px;padding:12px 14px;background:var(--surface-2);font-size:.92rem;display:grid;gap:4px}
+.screen .label{font-size:.76rem;font-weight:700;color:var(--muted)}
+.ok{border-left:3px solid var(--done);padding:6px 12px;background:var(--done-soft);border-radius:0 8px 8px 0;font-size:.93rem}
+.trap{border-left:3px solid var(--warn);padding:6px 12px;background:var(--warn-soft);border-radius:0 8px 8px 0;font-size:.93rem}
+.cmd{background:var(--term-bg);color:var(--term-fg);border-radius:8px;display:grid;grid-template-columns:1fr auto;align-items:start;min-width:0}
+.cmd pre{margin:0;padding:11px 14px;overflow-x:auto;font-family:var(--font-mono);font-size:.84rem;line-height:1.6;white-space:pre}
+.cmd pre::before{content:"> ";color:var(--term-dim)}
+.cmd .note{grid-column:1/-1;padding:0 14px 10px;color:var(--term-dim);font-size:.78rem;font-family:var(--font-body)}
+.copy{margin:7px 7px 0 0;border:1px solid #334155;background:transparent;color:var(--term-fg);border-radius:6px;padding:3px 10px;font:inherit;font-size:.78rem;cursor:pointer}
+.copy.ok-copied{border-color:var(--done);color:var(--done)}
+.say{display:grid;gap:6px}
+.say q{display:block;quotes:none;background:var(--accent-soft);color:var(--fg);padding:8px 12px;border-radius:12px 12px 12px 3px;width:fit-content;max-width:100%}
+
+/* FAQ, 보안 */
+.faq{display:grid;gap:10px}
+.faq details{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:0 16px}
+.faq summary{cursor:pointer;padding:14px 0;font-weight:600;list-style-position:outside}
+.faq .ans{padding:0 0 16px;display:grid;gap:8px;color:var(--fg)}
+.faq .sym{font-family:var(--font-mono);font-size:.82rem;color:var(--danger);background:var(--danger-soft);padding:6px 10px;border-radius:6px;overflow-x:auto;white-space:pre-wrap;word-break:break-all}
+.security{border:1px solid color-mix(in srgb,var(--danger) 40%,var(--line));background:var(--danger-soft);border-radius:var(--r);padding:18px 20px;display:grid;gap:8px}
+.security h2{color:var(--danger);font-size:1.1rem}
+.empty{padding:28px;text-align:center;color:var(--muted);border:1px dashed var(--line);border-radius:var(--r)}
+footer{color:var(--muted);font-size:.82rem;display:grid;gap:4px}
+
+@media (max-width:640px){
+  .kpis{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .step-top{grid-template-columns:auto 1fr;}
+  .step-top .check{grid-column:1/-1;justify-self:start}
+  .step-body{padding:0 16px 16px 16px}
+  .bar-row{grid-template-columns:72px 1fr 44px}
+}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+
+<div class="wrap">
+  <header style="display:grid;gap:10px">
+    <span class="eyebrow">Claude × Google 캘린더 · 드라이브</span>
+    <h1>구글 캘린더·드라이브를 Claude와 연결하기</h1>
+    <p class="lead">1부만 따라 해도 "내일 3시에 회의 일정 넣어줘", "드라이브에서 보고서 찾아줘"를 말로 시킬 수 있습니다. 2부는 명령어로 더 많은 일을 하고 싶은 분을 위한 심화 과정입니다. 단계마다 <b>완료</b>에 체크하면서 진행하세요.</p>
+  </header>
+
+  <section class="summary" aria-label="진행 현황">
+    <div class="kpis">
+      <div class="kpi"><b id="k-pct">0%</b><span>전체 진행률</span></div>
+      <div class="kpi"><b id="k-done">0</b><span>완료한 단계</span></div>
+      <div class="kpi"><b id="k-left">0</b><span>남은 단계</span></div>
+      <div class="kpi"><b id="k-min">0분</b><span>남은 예상 시간</span></div>
+    </div>
+    <div class="bars">
+      <div class="bar-row"><span>1부 커넥터</span><div class="bar"><i id="b1"></i></div><span class="num" id="n1">0/0</span></div>
+      <div class="bar-row"><span>2부 gws</span><div class="bar p2"><i id="b2"></i></div><span class="num" id="n2">0/0</span></div>
+    </div>
+    <div class="save-note"><span id="save-state">체크 상태는 이 브라우저에 저장됩니다.</span><button class="linkbtn" id="reset" type="button">체크 모두 지우기</button></div>
+  </section>
+
+  <section style="display:grid;gap:10px">
+    <h2>어느 쪽부터 할까요?</h2>
+    <div class="compare">
+      <table>
+        <thead><tr><th></th><th>1부 · Claude 커넥터</th><th>2부 · gws 명령어 도구</th></tr></thead>
+        <tbody>
+          <tr><td>설정 시간</td><td>약 5~10분</td><td>약 40~60분</td></tr>
+          <tr><td>난이도</td><td>쉬움. Claude 설정에서 구글 로그인만</td><td>어려움. Google Cloud 콘솔 설정 필요</td></tr>
+          <tr><td>쓰는 방법</td><td>Claude에게 말로 요청</td><td>명령어 실행, 또는 Claude Code가 대신 실행</td></tr>
+          <tr><td>할 수 있는 일</td><td>일정 보기·추가·수정, 드라이브 파일 찾기·읽기, 메일 검색</td><td>구글 API 대부분: 업로드, 시트·문서 편집, 대량 작업, 자동화</td></tr>
+          <tr><td>추천 대상</td><td>모든 사람</td><td>반복 작업을 자동화하고 싶은 사람</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <nav class="tabs" role="tablist" aria-label="보기 선택">
+    <button class="tab" role="tab" data-f="all" id="tab-all">전체 <span class="c" id="c-all"></span></button>
+    <button class="tab" role="tab" data-f="left" id="tab-left">남은 단계 <span class="c" id="c-left"></span></button>
+    <button class="tab" role="tab" data-f="done" id="tab-done">완료 <span class="c" id="c-done"></span></button>
+    <button class="tab" role="tab" data-f="faq" id="tab-faq">문제 해결 <span class="c" id="c-faq"></span></button>
+  </nav>
+
+  <main id="steps" style="display:grid;gap:30px"></main>
+
+  <section id="faq-sec" style="display:grid;gap:12px">
+    <h2>문제 해결</h2>
+    <p class="lead">실제로 진행하면서 막혔던 화면과 해결 방법입니다. 화면에 나온 글자와 비슷한 항목을 찾아 열어 보세요.</p>
+    <div class="faq" id="faq"></div>
+  </section>
+
+  <section class="security" id="security">
+    <h2>보안 주의</h2>
+    <ul class="plain">
+      <li><b>클라이언트 보안 비밀번호</b>(<code>GOCSPX-</code>로 시작)는 캡처, 채팅, 메신저에 절대 올리지 마세요. 검은 창에만 붙여넣습니다.</li>
+      <li>실수로 노출했다면 Google Cloud 콘솔 → Google 인증 플랫폼 → <b>클라이언트</b>에서 해당 클라이언트를 열고 새 보안 비밀번호를 추가한 뒤 예전 것을 삭제하세요.</li>
+      <li>"JSON 다운로드"로 받은 파일에도 비밀번호가 들어 있습니다. 공유 폴더나 메신저에 올리지 마세요.</li>
+      <li>구글 비밀번호 입력, 2단계 인증, 권한 허용은 반드시 본인이 직접 하세요. 누가 대신 해 주겠다고 하면 거절하세요.</li>
+      <li>Claude가 일정 추가·메일 발송처럼 무언가를 바꾸기 전에는 확인을 요청합니다. 내용을 읽고 승인하세요.</li>
+    </ul>
+  </section>
+
+  <footer>
+    <span>2026년 10월 기준 화면과 명령어입니다. 구글·Claude 화면 문구는 업데이트로 조금 달라질 수 있습니다.</span>
+    <span>gws는 구글 직원들이 만든 오픈소스 도구이며 Google의 공식 지원 제품은 아닙니다.</span>
+  </footer>
+</div>
+
+<script>
+const PARTS = [
+ {id:"p1", title:"1부 · Claude 커넥터로 연결하기", pill:"쉬움 · 약 10분", hard:false,
+  desc:"Claude 앱 설정에서 구글 계정을 연결합니다. 명령어는 필요 없습니다."},
+ {id:"p2", title:"2부 · gws 명령어 도구 설치하기 (심화)", pill:"심화 · 약 50분", hard:true,
+  desc:"Windows의 명령 프롬프트(cmd)에서 진행합니다. 처음 해 보는 분은 1부를 먼저 끝내고 오세요."}
+];
+
+const STEPS = [
+ {id:"c1", part:"p1", min:2, title:"준비물 확인",
+  goal:"연결에 필요한 계정을 확인합니다.",
+  todo:["Claude 계정으로 claude.ai 또는 Claude 데스크톱 앱에 로그인합니다.","연결할 구글 계정(개인 Gmail)의 비밀번호를 준비합니다.","회사·단체 Claude 계정이면 관리자가 구글 커넥터를 허용해 둬야 합니다."],
+  ok:"Claude 화면 왼쪽 아래에 내 이름(이니셜)이 보이면 준비 완료입니다.",
+  trap:"요금제에 따라 커넥터 메뉴가 보이지 않을 수 있습니다. 설정에 커넥터 메뉴가 없으면 요금제를 확인하세요."},
+ {id:"c2", part:"p1", min:3, title:"Google Calendar 연결",
+  goal:"Claude가 내 구글 캘린더를 보고 일정을 추가할 수 있게 합니다.",
+  todo:["Claude 화면 왼쪽 아래 <b>내 이름</b>을 누르고 <b>설정</b>으로 들어갑니다.","<b>커넥터(Connectors)</b> 메뉴를 엽니다.","목록에서 <b>Google Calendar</b>를 찾아 <b>연결(Connect)</b>을 누릅니다.","구글 로그인 창에서 계정을 고르고, 권한 화면에서 <b>허용</b>을 누릅니다."],
+  screen:"커넥터 목록에 Google Calendar, Google Drive, Gmail 같은 서비스가 카드 형태로 나오고, 각 카드에 연결 버튼이 있습니다.",
+  ok:"Google Calendar 카드가 <b>연결됨</b> 상태로 바뀝니다.",
+  trap:"구글 권한 화면에서 체크박스가 나오면 모두 체크하세요. 빠뜨리면 일정 추가가 안 됩니다."},
+ {id:"c3", part:"p1", min:3, title:"Google Drive · Gmail 연결",
+  goal:"같은 방법으로 드라이브(필요하면 Gmail도)를 연결합니다.",
+  todo:["같은 커넥터 화면에서 <b>Google Drive</b>의 <b>연결</b>을 누릅니다.","구글 계정을 고르고 <b>허용</b>을 누릅니다.","메일도 쓰고 싶으면 <b>Gmail</b>도 같은 방법으로 연결합니다."],
+  ok:"Google Drive(와 Gmail) 카드가 <b>연결됨</b> 상태입니다."},
+ {id:"c4", part:"p1", min:2, title:"말로 시켜 보기",
+  goal:"새 대화에서 실제로 일정과 파일을 다뤄 봅니다.",
+  todo:["새 대화를 엽니다. 입력창의 <b>+</b> 메뉴에서 연결한 커넥터가 켜져 있는지 확인합니다.","아래 문장을 그대로 보내 봅니다.","일정 추가처럼 무언가를 바꾸는 요청은 Claude가 실행 전에 확인을 묻습니다. 내용을 보고 승인합니다."],
+  say:["이번 주 내 일정 알려줘","내일 오후 3시부터 4시까지 '팀 회의' 일정 넣어줘","드라이브에서 최근에 수정한 파일 5개 보여줘","드라이브에 있는 '보고서' 문서 내용 요약해줘"],
+  ok:"구글 캘린더 앱(휴대폰이나 웹)을 열었을 때 방금 넣은 일정이 보이면 1부 완료입니다."},
+
+ {id:"g1", part:"p2", min:5, title:"명령 프롬프트 열고 Node.js 확인",
+  goal:"gws 설치에 필요한 Node.js가 있는지 확인합니다.",
+  todo:["키보드 <b>Windows 키</b>를 누르고 <b>cmd</b>를 입력한 뒤 <b>명령 프롬프트</b>를 엽니다. (PowerShell이 아니라 명령 프롬프트를 쓰세요)","아래 명령을 입력하고 Enter를 누릅니다.","<code>v18</code> 이상 숫자가 나오면 다음 단계로 갑니다. 오류가 나면 두 번째 명령으로 설치하고 <b>창을 닫았다가 다시 엽니다</b>."],
+  cmds:[{c:"node -v"},{c:"winget install --id OpenJS.NodeJS.LTS --exact",n:"Node.js가 없을 때만 실행"}],
+  screen:"<code>v22.x.x</code>처럼 버전 번호가 한 줄 나옵니다.",
+  ok:"버전 번호가 v18 이상입니다.",
+  trap:"용어 풀이: <b>Node.js</b>는 gws 같은 도구를 설치·실행하게 해 주는 프로그램입니다. <b>명령 프롬프트(cmd)</b>는 글자로 명령을 입력하는 검은 창입니다."},
+ {id:"g2", part:"p2", min:2, title:"gws 설치",
+  goal:"Google Workspace CLI(gws)를 설치합니다.",
+  todo:["아래 명령으로 설치합니다.","설치가 끝나면 버전 확인 명령을 실행합니다."],
+  cmds:[{c:"npm install -g @googleworkspace/cli"},{c:"gws --version"}],
+  screen:"<code>gws 0.22.5</code> 같은 버전과 함께 <code>This is not an officially supported Google product.</code> 문구가 나옵니다.",
+  ok:"버전 번호가 나오면 성공입니다. 영어 문구는 \"구글 직원들이 만들었지만 구글이 정식 지원하는 제품은 아니다\"라는 뜻이라 무시해도 됩니다.",
+  trap:"용어 풀이: <b>CLI</b>는 마우스 대신 글자 명령으로 쓰는 프로그램이라는 뜻입니다."},
+ {id:"g3", part:"p2", min:5, title:"Google Cloud CLI(gcloud) 설치",
+  goal:"gws의 자동 설정 기능이 쓰는 구글 공식 도구를 설치합니다.",
+  todo:["아래 명령을 실행합니다.","관리자 권한 창(사용자 계정 컨트롤)이 뜨면 <b>예</b>를 누릅니다.","설치가 끝나면 <b>명령 프롬프트 창을 닫고 새로 엽니다</b>.","새 창에서 버전을 확인합니다."],
+  cmds:[{c:"winget install --id Google.CloudSDK --exact"},{c:"gcloud --version",n:"새 창에서 실행"}],
+  ok:"<code>Google Cloud SDK 5xx.x.x</code> 같은 줄이 나옵니다.",
+  trap:"창을 새로 열지 않으면 <code>gcloud</code>를 찾을 수 없다는 오류가 납니다."},
+ {id:"g4", part:"p2", min:5, title:"구글 계정 2단계 인증 켜기",
+  goal:"Google Cloud 콘솔은 2단계 인증이 꺼진 계정을 차단합니다. 미리 켜 둡니다.",
+  todo:["브라우저에서 아래 주소를 엽니다.","<b>2단계 인증 사용 설정</b>을 누르고 휴대폰 번호로 인증합니다.","이미 켜져 있으면 이 단계는 바로 완료 체크하세요."],
+  link:["https://myaccount.google.com/signinoptions/twosv","2단계 인증 설정 페이지"],
+  ok:"\"2단계 인증 사용 중\"으로 표시됩니다.",
+  trap:"켠 직후에는 반영까지 몇 분 걸릴 수 있습니다. 콘솔에서 계속 차단되면 몇 분 뒤 새로고침하세요."},
+ {id:"g5", part:"p2", min:7, title:"자동 설정 실행 (Step 1~4)",
+  goal:"구글 로그인, 프로젝트 만들기, API 켜기를 자동으로 진행합니다.",
+  todo:["아래 명령을 실행합니다.","<b>Step 2 · 계정</b>: <b>Login with new account</b>에서 Enter → 브라우저에서 로그인하고 허용합니다.","<b>Step 3 · 프로젝트</b>: <b>Create new project</b>를 고르고 프로젝트 ID를 입력합니다.","<b>Step 4 · API</b>: 스페이스바로 Drive, Sheets, Gmail, Calendar, Docs, Slides, Tasks, People(Contacts) <b>8개만</b> 체크하고 Enter를 누릅니다."],
+  cmds:[{c:"gws auth setup --login"},{c:"my-gws-project-2026",n:"프로젝트 ID 예시. 이름 끝 숫자를 바꿔 나만의 ID로 입력"}],
+  screen:"화면 위쪽에 Step 1/5 ~ 5/5 목록이 있고, 아래쪽에 선택 목록이 나옵니다. ↑↓로 이동, 스페이스바로 체크, Enter로 확정합니다.",
+  ok:"Step 1~4 앞에 초록색 체크(✓)가 붙고 Step 5에서 \"Manual OAuth client setup required\"가 나옵니다. 이 창은 <b>닫지 말고</b> 다음 단계로 갑니다.",
+  trap:"프로젝트 ID 규칙: 영어 소문자·숫자·하이픈(-)만, 6~30자, 소문자로 시작, 전 세계에서 하나뿐. Vault, Admin SDK, Reseller 같은 관리자용 API는 개인 계정에서 쓸 수 없으니 고르지 마세요. Calendar만 실패해도 괜찮습니다(11단계에서 해결)."},
+ {id:"g6", part:"p2", min:5, title:"콘솔 설정 ① 동의 화면과 테스트 사용자",
+  goal:"내 계정만 이 앱에 로그인할 수 있도록 등록합니다.",
+  todo:["아래 주소에서 <code>my-gws-project-2026</code>을 내 프로젝트 ID로 바꿔 엽니다.","<b>시작하기</b>를 누르고 앱 이름(<code>gws-cli</code>), 지원 이메일(내 Gmail), 대상 <b>외부</b>, 연락처 이메일(내 Gmail)을 입력하고 <b>만들기</b>를 누릅니다.","왼쪽 메뉴 <b>대상</b> → <b>테스트 사용자</b> → <b>+ Add users</b>에 <b>내 Gmail 주소</b>를 추가하고 저장합니다."],
+  cmds:[{c:"https://console.cloud.google.com/auth/overview?project=my-gws-project-2026",n:"브라우저 주소창에 붙여넣기"}],
+  screen:"\"Google 인증 플랫폼\" 화면입니다. 이미 만들어져 있으면 왼쪽에 개요·브랜딩·대상·클라이언트 메뉴가 바로 보입니다.",
+  ok:"대상 화면의 테스트 사용자 목록에 내 이메일이 보입니다.",
+  trap:"테스트 사용자를 빠뜨리면 마지막 로그인에서 \"액세스 차단됨(403)\"이 나옵니다. 가장 많이 빠뜨리는 단계입니다."},
+ {id:"g7", part:"p2", min:5, title:"콘솔 설정 ② OAuth 클라이언트 만들기",
+  goal:"gws가 내 구글 계정에 접속할 때 쓸 열쇠(클라이언트)를 만듭니다.",
+  todo:["왼쪽 메뉴 <b>클라이언트</b> → <b>+ 클라이언트 만들기</b>(또는 개요의 <b>OAuth 클라이언트 만들기</b>)를 누릅니다.","애플리케이션 유형은 <b>데스크톱 앱</b>, 이름은 그대로 두고 <b>만들기</b>를 누릅니다.","팝업은 <b>닫지 말고</b>, <b>클라이언트 ID</b>를 복사해 검은 창에 붙여넣고(마우스 오른쪽 클릭) Enter를 누릅니다.","이어서 <b>클라이언트 보안 비밀번호</b>를 복사해 붙여넣고 Enter를 누릅니다.","팝업의 <b>JSON 다운로드</b>로 백업한 뒤 <b>확인</b>을 누릅니다."],
+  screen:"팝업 제목은 \"OAuth 클라이언트 생성됨\"입니다. 클라이언트 ID는 <code>…apps.googleusercontent.com</code>으로 끝나고, 보안 비밀번호는 <code>GOCSPX-</code>로 시작합니다.",
+  ok:"검은 창에 \"Setup complete!\"가 나오고 로그인 단계로 넘어갑니다.",
+  trap:"팝업을 닫으면 보안 비밀번호를 다시 볼 수 없습니다. 보안 비밀번호는 캡처하거나 남에게 보내지 마세요."},
+ {id:"g8", part:"p2", min:5, title:"로그인하고 권한 허용",
+  goal:"gws가 내 드라이브·캘린더에 접근하도록 허락합니다.",
+  todo:["자동으로 이어지지 않으면 아래 명령을 실행합니다.","권한 목록이 나오면 <code>a</code>를 눌러 전체 선택을 풀고(0개), 맨 위 <b>✨ Recommended</b>에서 스페이스바 → Enter를 누릅니다.","브라우저가 열리면 내 계정을 고르고, \"확인되지 않은 앱\" 경고에서 <b>고급 → gws-cli(으)로 이동</b>을 누릅니다.","권한 체크박스는 <b>모두 체크</b>하고 <b>계속</b>을 누릅니다."],
+  cmds:[{c:"gws auth login"}],
+  screen:"\"gws-cli 서비스로 로그인\" 화면이 나오고 오른쪽 아래에 취소·계속 버튼이 있습니다.",
+  ok:"브라우저에 인증 완료 메시지가 나오고 검은 창이 명령 입력 상태로 돌아옵니다.",
+  trap:"46개 전체 선택은 피하세요. 테스트 중인 앱은 권한 개수 제한이 있어 실패할 수 있고, 필요 없는 위험한 권한까지 열립니다. 브라우저가 안 열리면 검은 창의 긴 주소를 통째로 복사해 브라우저에 붙여넣으세요."},
+ {id:"g9", part:"p2", min:1, title:"연결 확인",
+  goal:"로그인이 제대로 됐는지 확인합니다.",
+  todo:["아래 명령을 실행합니다."],
+  cmds:[{c:"gws auth status"}],
+  ok:"<code>\"token_valid\": true</code>와 <code>\"user\": \"내 이메일\"</code>이 보이고, <code>scopes</code> 목록에 drive가 들어 있으면 성공입니다.",
+  trap:"calendar가 scopes 목록에 없으면 다음 단계에서 추가합니다."},
+ {id:"g10", part:"p2", min:5, title:"Calendar 켜기",
+  goal:"자동 설정에서 실패하기 쉬운 캘린더 API를 켜고 권한을 추가합니다.",
+  todo:["브라우저에서 캘린더 서비스 약관 페이지를 열고 동의합니다.","아래 명령으로 캘린더 API를 켭니다. (프로젝트 ID는 내 것으로)","다시 로그인해서 캘린더 권한을 받습니다. 권한 목록에서 Recommended를 고르면 Calendar가 포함됩니다."],
+  link:["https://console.developers.google.com/terms/calendar","캘린더 약관 동의 페이지"],
+  cmds:[{c:"gcloud services enable calendar-json.googleapis.com --project my-gws-project-2026"},{c:"gws auth login"}],
+  ok:"<code>gws auth status</code>의 scopes에 <code>calendar</code>가 들어 있습니다.",
+  trap:"약관 동의 전에 API를 켜면 <code>FAILED_PRECONDITION … terms of service</code> 오류가 납니다."},
+ {id:"g11", part:"p2", min:5, title:"Drive 써 보기",
+  goal:"최근 파일 보기와 업로드를 해 봅니다.",
+  todo:["최근 수정한 파일 5개를 표로 봅니다.","내 PC의 파일을 드라이브에 올려 봅니다. 경로는 내 파일 위치로 바꾸세요."],
+  cmds:[{c:'gws drive files list --params "{\\"pageSize\\":5,\\"orderBy\\":\\"modifiedTime desc\\",\\"fields\\":\\"files(id,name,modifiedTime)\\"}" --format table'},
+        {c:'gws drive +upload "C:\\Users\\내이름\\Documents\\보고서.pdf"'}],
+  screen:"<code>id · modifiedTime · name</code> 칸으로 된 표가 나옵니다. 시간은 세계 표준시(UTC)라 한국 시간보다 9시간 빠르게 보입니다.",
+  ok:"표에 내 드라이브 파일 이름이 보이고, 업로드한 파일이 drive.google.com에 나타납니다.",
+  trap:"따옴표 안의 <code>\\\"</code>는 그대로 입력해야 합니다. 복사 버튼을 쓰세요. PowerShell에서는 이 명령이 깨지니 명령 프롬프트(cmd)에서 실행하세요."},
+ {id:"g12", part:"p2", min:5, title:"Calendar 써 보기",
+  goal:"일정 조회와 추가를 해 봅니다.",
+  todo:["오늘 일정, 이번 주 일정을 봅니다.","일정을 하나 추가합니다. 날짜와 시간은 바꿔서 입력하세요. <code>+09:00</code>은 한국 시간이라는 뜻입니다."],
+  cmds:[{c:"gws calendar +agenda --today --format table"},{c:"gws calendar +agenda --week --format table"},
+        {c:'gws calendar +insert --summary "팀 회의" --start 2026-10-20T15:00:00+09:00 --end 2026-10-20T16:00:00+09:00'}],
+  ok:"추가한 일정이 구글 캘린더 앱에 보입니다.",
+  trap:"<code>insufficient authentication scopes</code>(권한 부족) 오류가 나면 10단계의 다시 로그인을 하세요."},
+ {id:"g13", part:"p2", min:2, title:"보너스 · Claude Code에게 맡기기",
+  goal:"gws가 설치된 PC의 Claude Code에게는 명령어 대신 말로 시킬 수 있습니다.",
+  todo:["Claude Code(데스크톱 앱의 Code 탭)를 열고 아래처럼 요청합니다.","Claude가 gws 명령을 대신 실행하고 결과를 정리해 줍니다."],
+  say:["gws로 이번 주 내 일정 표로 정리해줘","드라이브 최근 파일 10개를 구글 시트로 목록 만들어줘","이 폴더의 PDF들을 드라이브 '강의자료' 폴더에 올려줘"],
+  ok:"Claude Code가 <code>gws …</code> 명령을 실행하고 결과를 보여 줍니다."}
+];
+
+const FAQ = [
+ {q:"PowerShell에서 \"스크립트를 실행할 수 없으므로 gws.ps1 파일을 로드할 수 없습니다\"",
+  sym:"gws : 이 시스템에서 스크립트를 실행할 수 없으므로 …\\gws.ps1 파일을 로드할 수 없습니다.",
+  a:["PowerShell의 보안 설정 때문입니다. 설정을 바꾸지 말고 <b>명령 프롬프트(cmd)</b>에서 실행하세요.","PowerShell을 꼭 써야 하면 <code>gws</code> 대신 <code>gws.cmd</code>로 입력하면 됩니다."]},
+ {q:"PowerShell에서 JSON이 들어간 명령이 \"unexpected argument\"로 실패",
+  sym:"error: unexpected argument 'desc\",\"fields\":…' found",
+  a:["PowerShell은 따옴표를 다르게 처리해서 <code>--params \"{…}\"</code> 명령이 깨집니다.","이 강의록의 명령은 모두 <b>명령 프롬프트(cmd)</b> 기준입니다. cmd에서 복사 버튼으로 붙여넣으세요."]},
+ {q:"Google Cloud 콘솔에서 \"Google Cloud 액세스 차단됨\" (2단계 인증)",
+  sym:"2026년 7월 4일부터 Google Cloud에서 2단계 인증(2SV)을 시행하기 시작했습니다.",
+  a:["구글 계정에 2단계 인증이 꺼져 있어서입니다. 화면의 <b>MFA 사용 설정</b>을 눌러 켜세요.","켠 뒤 몇 분 기다렸다가 콘솔 페이지를 새로고침하면 풀립니다."]},
+ {q:"로그인할 때 \"액세스 차단됨: 인증 절차를 완료하지 않았습니다 (403 access_denied)\"",
+  sym:"앱은 현재 테스트 중이며 개발자가 승인한 테스터만 앱에 액세스할 수 있습니다.",
+  a:["<b>테스트 사용자</b>에 내 이메일이 없어서입니다. 6단계의 대상 → 테스트 사용자에 추가하세요.","추가 후 1~2분 뒤 <code>gws auth login</code>을 다시 실행하세요."]},
+ {q:"\"Google에서 확인하지 않은 앱\" 경고가 나옴",
+  a:["내가 만든 테스트용 앱이라 나오는 정상 경고입니다.","<b>고급</b> → <b>gws-cli(으)로 이동(안전하지 않음)</b>을 누르고 진행하세요. 단, 내가 직접 만든 앱일 때만 그렇게 하세요."]},
+ {q:"<code>gws auth login</code> 후 브라우저가 자동으로 안 열림",
+  sym:"Open this URL in your browser to authenticate:  https://accounts.google.com/o/oauth2/auth?…",
+  a:["검은 창에 나온 긴 주소를 <b>처음부터 끝까지</b> 드래그해서 복사한 뒤 브라우저 주소창에 붙여넣으세요.","창 크기 때문에 주소가 여러 줄로 보여도 한 덩어리입니다. 검은 창은 승인이 끝날 때까지 닫지 마세요."]},
+ {q:"API를 켤 때 Calendar만 실패 (FAILED_PRECONDITION, terms of service)",
+  sym:"FAILED_PRECONDITION: The terms of service 'calendar' … must be accepted.",
+  a:["캘린더 서비스 약관에 아직 동의하지 않아서입니다. 나머지 설정은 그대로 진행해도 됩니다.","설정이 끝난 뒤 10단계(Calendar 켜기)를 따라 하세요."]},
+ {q:"로그인은 됐는데 일부 서비스만 \"권한 부족(403)\"",
+  sym:"Request had insufficient authentication scopes.",
+  a:["로그인할 때 그 서비스의 권한 체크를 빠뜨린 경우입니다.","<code>gws auth login</code>을 다시 실행하고, 권한 목록과 브라우저 동의 화면에서 해당 서비스를 체크하세요."]},
+ {q:"검은 창의 글자가 겹쳐 보이거나 이상한 글자가 남아 있음",
+  a:["화면을 다시 그리면서 생기는 흔적이라 정상입니다.","입력 칸(<code>&gt;</code> 옆)만 보고 진행하세요. 입력 칸에 이상한 글자가 있으면 Backspace로 지우세요."]},
+ {q:"Claude 설정에 커넥터 메뉴나 Google 커넥터가 안 보임",
+  a:["요금제나 조직 설정에 따라 커넥터가 제한될 수 있습니다.","회사·단체 계정이면 관리자에게 Google 커넥터 허용을 요청하세요."]}
+];
+
+const ORDER = STEPS.map(s=>s.id);
+let done = new Set();
+let filter = "all";
+let dbRef = null, dbDisabled = false;
+
+function lsGet(){try{const v=localStorage.getItem("gws-guide-done");return v?JSON.parse(v):[]}catch(e){return []}}
+function lsSet(arr){try{localStorage.setItem("gws-guide-done",JSON.stringify(arr))}catch(e){}}
+function lsFilterGet(){try{return localStorage.getItem("gws-guide-tab")||"all"}catch(e){return "all"}}
+function lsFilterSet(v){try{localStorage.setItem("gws-guide-tab",v)}catch(e){}}
+
+const esc = s => s.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+
+function stepHTML(s){
+  const n = ORDER.indexOf(s.id);
+  const local = STEPS.filter(x=>x.part===s.part).indexOf(s)+1;
+  const isDone = done.has(s.id);
+  let h = `<article class="step${isDone?" is-done":""}" id="step-${s.id}" data-id="${s.id}">
+   <div class="step-top">
+    <div class="idx" aria-hidden="true">${isDone?"✓":local}</div>
+    <div class="step-title"><h3>${s.title}</h3><small>${s.goal} · 약 ${s.min}분</small></div>
+    <label class="check"><input type="checkbox" id="chk-${s.id}" data-id="${s.id}" ${isDone?"checked":""}> 완료</label>
+   </div>
+   <div class="step-body">`;
+  h += `<div class="block"><span class="label">할 일</span><ol class="todo">${s.todo.map(t=>`<li>${t}</li>`).join("")}</ol></div>`;
+  if(s.link) h += `<div class="block"><span class="label">열 주소</span><a href="${s.link[0]}" target="_blank" rel="noopener">${s.link[1]} ↗</a><code class="mono" style="word-break:break-all">${s.link[0]}</code></div>`;
+  if(s.cmds) h += `<div class="block"><span class="label">입력할 명령</span>${s.cmds.map((c,i)=>`<div class="cmd"><pre>${esc(c.c)}</pre><button class="copy" type="button" data-cmd="${s.id}-${i}">복사</button>${c.n?`<div class="note">${c.n}</div>`:""}</div>`).join("")}</div>`;
+  if(s.say) h += `<div class="block say"><span class="label">이렇게 말해 보세요</span>${s.say.map(t=>`<q>${t}</q>`).join("")}</div>`;
+  if(s.screen) h += `<div class="screen"><span class="label">이런 화면이 나옵니다</span><span>${s.screen}</span></div>`;
+  if(s.ok) h += `<div class="ok"><b>성공 확인</b> · ${s.ok}</div>`;
+  if(s.trap) h += `<div class="trap"><b>자주 막히는 점</b> · ${s.trap}</div>`;
+  h += `</div></article>`;
+  return h;
+}
+
+function render(){
+  const main = document.getElementById("steps");
+  const faqSec = document.getElementById("faq-sec");
+  const sec = document.getElementById("security");
+  if(filter==="faq"){ main.hidden = true; faqSec.hidden=false; sec.hidden=false; }
+  else{
+    main.hidden=false; faqSec.hidden = filter!=="all"; sec.hidden = filter!=="all";
+    let html = "";
+    for(const p of PARTS){
+      const list = STEPS.filter(s=>s.part===p.id && (filter==="all" || (filter==="done"?done.has(s.id):!done.has(s.id))));
+      if(!list.length) continue;
+      html += `<section class="part"><div class="part-head"><span class="pill${p.hard?" hard":""}">${p.pill}</span><h2>${p.title}</h2><p class="lead">${p.desc}</p></div>${list.map(stepHTML).join("")}</section>`;
+    }
+    if(!html) html = `<div class="empty">${filter==="done"?"아직 완료한 단계가 없습니다. 1부 첫 단계부터 시작해 보세요.":"모든 단계를 끝냈습니다. 수고하셨습니다!"}</div>`;
+    main.innerHTML = html;
+  }
+  updateStats();
+}
+
+function updateStats(){
+  const total = STEPS.length, d = STEPS.filter(s=>done.has(s.id)).length;
+  const leftMin = STEPS.filter(s=>!done.has(s.id)).reduce((a,s)=>a+s.min,0);
+  document.getElementById("k-pct").textContent = Math.round(d/total*100)+"%";
+  document.getElementById("k-done").textContent = d;
+  document.getElementById("k-left").textContent = total-d;
+  document.getElementById("k-min").textContent = leftMin+"분";
+  ["p1","p2"].forEach((p,i)=>{
+    const l = STEPS.filter(s=>s.part===p), dd = l.filter(s=>done.has(s.id)).length;
+    document.getElementById("b"+(i+1)).style.width = (dd/l.length*100)+"%";
+    document.getElementById("n"+(i+1)).textContent = dd+"/"+l.length;
+  });
+  document.getElementById("c-all").textContent = total;
+  document.getElementById("c-left").textContent = total-d;
+  document.getElementById("c-done").textContent = d;
+  document.getElementById("c-faq").textContent = FAQ.length;
+  document.querySelectorAll(".tab").forEach(t=>t.setAttribute("aria-selected", String(t.dataset.f===filter)));
+}
+
+function renderFAQ(){
+  document.getElementById("faq").innerHTML = FAQ.map((f,i)=>`<details id="faq-${i}"><summary>${f.q}</summary><div class="ans">${f.sym?`<div class="sym">${esc(f.sym)}</div>`:""}${f.a.map(x=>`<p>${x}</p>`).join("")}</div></details>`).join("");
+}
+
+function persist(){
+  const arr = [...done];
+  lsSet(arr);
+  if(dbRef && !dbDisabled){
+    dbRef.set({done:arr, updatedAt:Date.now()}).then(()=>{
+      document.getElementById("save-state").textContent = "체크 상태가 내 Claude 계정에 저장됩니다.";
+    }).catch(()=>{ dbDisabled = true; });
+  }
+}
+
+document.addEventListener("change", e=>{
+  const id = e.target?.dataset?.id; if(!id) return;
+  if(e.target.checked) done.add(id); else done.delete(id);
+  persist();
+  const card = document.getElementById("step-"+id);
+  if(filter==="all" && card){
+    const fresh = document.createElement("div"); fresh.innerHTML = stepHTML(STEPS.find(s=>s.id===id));
+    card.replaceWith(fresh.firstElementChild); document.getElementById("chk-"+id)?.focus();
+    updateStats();
+  } else render();
+});
+
+document.addEventListener("click", e=>{
+  const tab = e.target.closest(".tab");
+  if(tab){ filter = tab.dataset.f; lsFilterSet(filter); render(); return; }
+  const btn = e.target.closest(".copy");
+  if(btn){
+    const [sid,i] = [btn.dataset.cmd.slice(0,btn.dataset.cmd.lastIndexOf("-")), +btn.dataset.cmd.split("-").pop()];
+    const text = STEPS.find(s=>s.id===sid).cmds[i].c;
+    const okUI = ()=>{btn.textContent="복사됨"; btn.classList.add("ok-copied"); setTimeout(()=>{btn.textContent="복사"; btn.classList.remove("ok-copied")},1500)};
+    const fallback = ()=>{const r=document.createRange(); r.selectNodeContents(btn.previousElementSibling); const sel=getSelection(); sel.removeAllRanges(); sel.addRange(r); btn.textContent="Ctrl+C로 복사";};
+    try{ navigator.clipboard.writeText(text).then(okUI, fallback); }catch(err){ fallback(); }
+    return;
+  }
+  if(e.target.id==="reset"){
+    const b=e.target;
+    if(b.dataset.confirm!=="1"){ b.dataset.confirm="1"; b.textContent="한 번 더 누르면 모두 지워집니다"; setTimeout(()=>{b.dataset.confirm=""; b.textContent="체크 모두 지우기"},3000); return; }
+    b.dataset.confirm=""; b.textContent="체크 모두 지우기";
+    done = new Set(); persist(); render();
+  }
+});
+
+// 시작: 브라우저 저장값으로 먼저 그리고, Claude 계정 저장소가 있으면 거기서 불러옵니다.
+done = new Set(lsGet().filter(id=>ORDER.includes(id)));
+filter = lsFilterGet(); if(!["all","left","done","faq"].includes(filter)) filter="all";
+renderFAQ(); render();
+(async()=>{
+  try{
+    if(!window.claude?.use) return;
+    const [db,user] = await Promise.all([claude.use("db"), claude.use("user")]);
+    if(!db || !user) return;
+    const uid = await user.id(); if(!uid) return;
+    dbRef = db.doc("data/users/"+uid+"/progress");
+    const snap = await dbRef.get();
+    const saved = snap?.data?.()?.done ?? snap?.data?.done;
+    if(Array.isArray(saved)){
+      saved.filter(id=>ORDER.includes(id)).forEach(id=>done.add(id));
+      lsSet([...done]); render();
+    }
+    document.getElementById("save-state").textContent = "체크 상태가 내 Claude 계정에 저장됩니다.";
+  }catch(e){ dbRef=null; }
+})();
+</script>
+
+</body></html>
